@@ -18,14 +18,17 @@ $gridName = $grid->getConfig()->getName();
     $(document).ready(function() {
         var visibility = $.get("/check/<?=$gridName?>",function(){}).then(function(visibility){
             $(".button-visibility").css("visibility",visibility.visibility);
+            if(visibility.visibility == "hidden"){
+                myFunction();
+            }
         });
-        myFunction();
+        
     })
     function myFunction() {
         let interval = setInterval(function () {
             let visibility = $.get("/check/<?=$gridName?>",function(){}).then(function(visibility){
                 $(".button-visibility").css("visibility",visibility.visibility);
-                if(visibility.visibility == "hidden"){
+                if(visibility.visibility == "visible"){
                     clearInterval(interval);
                 }
             });
