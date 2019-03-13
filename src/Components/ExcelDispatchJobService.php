@@ -150,9 +150,9 @@ class ExcelDispatchJobService extends RenderableComponent
             $this->config = $className::getGridConfig($user);
         }
 
-        $grid = (new Grid($this->config->setRowComponent(new ExtendedTableRow(function ($model) {
-            return $className::getRowAttributes($model);
-        }))));
+//        $grid = (new Grid($this->config->setRowComponent(new ExtendedTableRow(function ($model) {
+//            return $className::getRowAttributes($model);
+//        }))));
 
         $this->renderExcel();
     }
