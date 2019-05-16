@@ -10,6 +10,7 @@ use Nayjest\Grids\Components\Base\RenderableComponent;
 use Nayjest\Grids\Components\Base\RenderableRegistry;
 use Nayjest\Grids\DataProvider;
 use Nayjest\Grids\DataRow;
+use Nayjest\Grids\FieldConfig;
 use Nayjest\Grids\Grid;
 
 /**
@@ -32,6 +33,8 @@ class CsvExport extends RenderableComponent
     protected $name = CsvExport::NAME;
     protected $render_section = RenderableRegistry::SECTION_END;
     protected $rows_limit = self::DEFAULT_ROWS_LIMIT;
+    protected $ignored_columns = [];
+    protected $is_hidden_columns_exported = false;
 
     /**
      * @var string
@@ -117,36 +120,130 @@ class CsvExport extends RenderableComponent
         $provider->setCurrentPage(1);
     }
 
+    /**
+     * @return string[]
+     */
+    public function getIgnoredColumns()
+    {
+        return $this->ignored_columns;
+    }
+
+    /**
+     * @param string[] $ignoredColumns
+     * @return $this
+     */
+    public function setIgnoredColumns(array $ignoredColumns)
+    {
+        $this->ignored_columns = $ignoredColumns;
+        return $this;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isHiddenColumnsExported()
+    {
+        return $this->is_hidden_columns_exported;
+    }
+
+    /**
+     * @param bool $isHiddenColumnsExported
+     * @return $this
+     */
+    public function setHiddenColumnsExported($isHiddenColumnsExported)
+    {
+        $this->is_hidden_columns_exported = $isHiddenColumnsExported;
+        return $this;
+    }
+
+    /**
+     * @param FieldConfig $column
+     * @return bool
+     */
+    protected function isColumnExported(FieldConfig $column)
+    {
+        return !in_array($column->getName(), $this->getIgnoredColumns())
+            && ($this->isHiddenColumnsExported() || !$column->isHidden());
+    }
+
+    protected function getHeaderRow()
+    {
+        $output = [];
+        foreach ($this->grid->getConfig()->getColumns() as $column) {
+            if ($this->isColumnExported($column)) {
+                $output[] = $this->escapeString($column->getLabel());
+            }
+        }
+        return $output;
+    }
+
     protected function renderCsv()
     {
-        $file = fopen('php://output', 'w');
+        ini_set('max_execution_time', 6600);
 
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="'. $this->getFileName() .'"');
         header('Pragma: no-cache');
 
-        set_time_limit(0);
+        $time = time();
 
+        // Build array
+        $exportData = [];
         /** @var $provider DataProvider */
         $provider = $this->grid->getConfig()->getDataProvider();
 
-        $this->renderHeader($file);
+        $tmpFilePath = storage_path("app/csv-export-$this->fileName.csv");
+        $tmpFile = fopen($tmpFilePath, 'w');
+        fprintf($tmpFile, chr(0xEF).chr(0xBB).chr(0xBF));
 
-        $this->resetPagination($provider);
-        $provider->reset();
-        /** @var DataRow $row */
-        while ($row = $provider->getRow()) {
-            $output = [];
-            foreach ($this->grid->getConfig()->getColumns() as $column) {
-                if (!$column->isHidden()) {
-                    $output[] = $this->escapeString( $column->getValue($row) );
+        fputcsv($tmpFile, $this->getHeaderRow(), static::CSV_DELIMITER);
+
+        $skip = 0;
+        $limit = 1000;
+        $count = $this->grid->getConfig()->getDataProvider()->getBuilder()->count();
+        while ($skip < $count && $skip < $this->rows_limit) {
+            $batch = $this->grid->getConfig()->getDataProvider()->getBuilder()->skip($skip)->limit($limit)->get();
+            foreach ($batch as $item) {
+                $output = [];
+                foreach ($this->grid->getConfig()->getColumns() as $column) {
+                    if ($this->isColumnExported($column)) {
+                        $cb = $column->getCallback();
+                        if ($cb) {
+                            $row = new class {
+                                protected $item = null;
+
+                                public function setSrc($src) {
+                                    $this->item = $src;
+                                }
+
+                                public function getSrc() {
+                                    return $this->item;
+                                }
+                            };
+                            $row->setSrc($item);
+                            $output[] = $cb($item[$column->getName()], $row);
+                        } else {
+                            $output[] = $item[$column->getName()];
+                        }
+                    }
                 }
+                fputcsv($tmpFile, $output, static::CSV_DELIMITER);
             }
-            fputcsv($file, $output, static::CSV_DELIMITER);
-
+            $skip += $limit;
         }
 
+        fclose($tmpFile);
+
+        $file = @fopen($tmpFilePath, 'r');
+        @ob_start();
+        while (!feof($file)) {
+            $buffer = fgets($file, 4096);
+            echo $buffer;
+            @ob_flush();
+            @flush();
+        }
         fclose($file);
+        unlink($tmpFilePath);
         exit;
     }
 

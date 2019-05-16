@@ -9,5 +9,5 @@
     style="display: inline; width: 80px; margin-right: 10px"
     type="text"
     name="<?= $component->getInputName() ?>"
-    value="<?= htmlspecialchars($component->getValue()) ?>"
+    value="<?= $component->getValue() ?>"
     >

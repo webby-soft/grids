@@ -15,6 +15,6 @@ use Nayjest\Grids\Components\ExcelExport;
         class="btn btn-sm btn-default"
         >
         <span class="glyphicon glyphicon-export"></span>
-        Excel Exportttttttttttt
+        Excel Export
     </a>
 </span>

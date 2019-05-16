@@ -27,6 +27,10 @@ abstract class DataProvider
         $this->src = $src;
     }
 
+    public function getSrc() {
+        return $this->src;
+    }
+
     /**
      * Sets the internal pointer first element.
      *

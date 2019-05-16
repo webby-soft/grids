@@ -32,7 +32,6 @@ class Grid
 
     public function __construct(GridConfig $config)
     {
-
         $this->config = $config;
         if ($config->getName() === null) {
             $this->provideName();
@@ -121,17 +120,14 @@ class Grid
         return false;
     }
 
-    private function sorting(FieldConfig $a, FieldConfig $b)
-    {
-        return $a->getOrder() > $b->getOrder();
-    }
-    
     /**
      * Sorts columns according to its order.
      */
     protected function sortColumns()
     {
-        $this->config->getColumns()->sort($this->sorting);
+        $this->config->getColumns()->sort(function (FieldConfig $a, FieldConfig $b) {
+            return $a->getOrder() > $b->getOrder();
+        });
     }
 
     /**
